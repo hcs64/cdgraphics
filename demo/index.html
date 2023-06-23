@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Super Dungeon Master CD+G [VINL-1]</title>
+    <title>Super Dungeon Master [VINL-1] CD+G</title>
     <style type="text/css">
       body {
         background-color: #222;
         color: orange;
+      }
+      a {
+        color: cornflowerblue;
       }
       .track {
         background: none;
@@ -19,10 +22,34 @@
         outline: inherit;
         text-decoration: underline;
       }
+      div#app {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
       canvas#canvas {
+        width: 100%;
         max-width: 600px;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
+        flex: 1;
+      }
+      @media all and (display-mode: fullscreen) {
+        div#app {
+          align-items: center;
+        }
+        canvas#canvas {
+          width: auto;
+          max-width: 100%;
+        }
+      }
+      div#app:-webkit-full-screen {
+        align-items: center;
+      }
+      div#app:-webkit-full-screen canvas#canvas {
+        width: auto;
+        max-width: 100%;
       }
       #loading-msg {
         display: none;
@@ -34,21 +61,24 @@
         margin: 100px;
       }
       #audio {
-        display: block;
+        width: 100%;
         max-width: 600px;
+        display: block;
         flex: 0;
       }
     </style>
   </head>
   <body>
+    <h1>Super Dungeon Master [VINL-1] CD+G</h1>
     <div id="app" class="loading-cdg">
-        <span id="loading-msg">Loading</span>
+        <span id="loading-msg">Loading&hellip;</span>
         <canvas id="canvas"></canvas>
       <audio id="audio" controls>
         <source src="all.ogg" type="audio/ogg; codecs=vorbis" />
         <source src="all.mp3" type="audio/mpeg" />
       </audio>
     </div>
+    <button type="button" onclick="document.getElementById('app').requestFullscreen();">Fullscreen</button>
     <table id="track-list">
       <tr><td>1</td><td><button type="button" class="track" data-seek="00:00:00">Title</button></td></tr>
       <tr><td>2</td><td><button type="button" class="track" data-seek="00:13:38">Something In The Dark ～幻想の彼方に～</button></td></tr>
@@ -62,6 +92,8 @@
       <tr><td>10</td><td> <button type="button" class="track" data-seek="31:25:33">Welcome To Dungeon</button></td></tr>
       <tr><td>11</td><td> <button type="button" class="track" data-seek="34:58:33">For Tears ～戦いのあとで…～</button></td></tr>
     </table>
+    <hr>
+    Rendered with <a href="https://github.com/bhj/cdgraphics">cdgraphics</a>. I've made some <a href="https://github.com/hcs64/cdgraphics/tree/scroll-fixes">fixes for scrolling</a> and other <a href="https://github.com/hcs64/cdgraphics/tree/vinl-1">improvements</a>.
     <script src="bundle.js"></script>
   </body>
 </html>
