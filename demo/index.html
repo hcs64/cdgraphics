@@ -12,7 +12,7 @@
       a {
         color: cornflowerblue;
       }
-      .track {
+      button {
         background: none;
         color: inherit;
         border: none;
@@ -27,27 +27,20 @@
         width: 100%;
         display: flex;
         flex-direction: column;
+        background-color: #222;
       }
       canvas#canvas {
         width: 100%;
         max-width: 600px;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
-        flex: 1;
+        flex-grow: 1;
       }
-      @media all and (display-mode: fullscreen) {
-        div#app {
-          align-items: center;
-        }
-        canvas#canvas {
-          width: auto;
-          max-width: 100%;
-        }
-      }
-      div#app:-webkit-full-screen {
+      div#app:fullscreen {
         align-items: center;
       }
-      div#app:-webkit-full-screen canvas#canvas {
+      div#app:fullscreen canvas#canvas {
+        object-fit: contain;
         width: auto;
         max-width: 100%;
       }
@@ -58,27 +51,29 @@
         display: block;
         position: absolute;
         font-size: 2em;
-        margin: 100px;
       }
       #audio {
         width: 100%;
         max-width: 600px;
         display: block;
-        flex: 0;
+        flex-grow: 0;
       }
     </style>
   </head>
   <body>
     <h1>Super Dungeon Master [VINL-1] CD+G</h1>
     <div id="app" class="loading-cdg">
-        <span id="loading-msg">Loading&hellip;</span>
+        <span id="loading-msg">Loading graphics&hellip;</span>
         <canvas id="canvas"></canvas>
       <audio id="audio" controls>
         <source src="all.ogg" type="audio/ogg; codecs=vorbis" />
         <source src="all.mp3" type="audio/mpeg" />
       </audio>
     </div>
-    <button type="button" onclick="document.getElementById('app').requestFullscreen();">Fullscreen</button>
+    <p>
+      <button type="button" onclick="document.getElementById('app').requestFullscreen();">Go full screen</button>
+    </p>
+    <h2>Tracks</h2>
     <table id="track-list">
       <tr><td>1</td><td><button type="button" class="track" data-seek="00:00:00">Title</button></td></tr>
       <tr><td>2</td><td><button type="button" class="track" data-seek="00:13:38">Something In The Dark ～幻想の彼方に～</button></td></tr>
