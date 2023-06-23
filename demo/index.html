@@ -18,8 +18,6 @@
         cursor: pointer;
         outline: inherit;
         text-decoration: underline;
-        text-align: left;
-        vertical-align: top;
       }
       canvas#canvas {
         max-width: 600px;
@@ -46,21 +44,24 @@
     <div id="app" class="loading-cdg">
         <span id="loading-msg">Loading</span>
         <canvas id="canvas"></canvas>
-      <audio id="audio" src="all.ogg" controls></audio>
+      <audio id="audio" controls>
+        <source src="all.ogg" type="audio/ogg; codecs=vorbis" />
+        <source src="all.mp3" type="audio/mpeg" />
+      </audio>
     </div>
-    <ol id="track-list">
-      <li><button type="button" class="track" data-seek="00:00:00">Title</button></li>
-      <li><button type="button" class="track" data-seek="00:13:38">Something In The Dark ～幻想の彼方に～</button></li>
-      <li><button type="button" class="track" data-seek="03:42:68">Nobility</button></li>
-      <li><button type="button" class="track" data-seek="08:03:31">Never Be Afraid</button></li>
-      <li><button type="button" class="track" data-seek="11:48:28">Glory Of The Past</button></li>
-      <li><button type="button" class="track" data-seek="15:11:21">Restive Skeleton</button></li>
-      <li><button type="button" class="track" data-seek="18:45:68">Pendulum</button></li>
-      <li><button type="button" class="track" data-seek="22:57:08">Scene Of Pandemonium</button></li>
-      <li><button type="button" class="track" data-seek="26:44:48">Eternal Rest</button></li>
-      <li><button type="button" class="track" data-seek="31:25:33">Welcome To Dungeon</button></li>
-      <li><button type="button" class="track" data-seek="34:58:33">For Tears ～戦いのあとで…～</button></li>
-    </ol>
+    <table id="track-list">
+      <tr><td>1</td><td><button type="button" class="track" data-seek="00:00:00">Title</button></td></tr>
+      <tr><td>2</td><td><button type="button" class="track" data-seek="00:13:38">Something In The Dark ～幻想の彼方に～</button></td></tr>
+      <tr><td>3</td><td><button type="button" class="track" data-seek="03:42:68">Nobility</button></td></tr>
+      <tr><td>4</td><td><button type="button" class="track" data-seek="08:03:31">Never Be Afraid</button></td></tr>
+      <tr><td>5</td><td><button type="button" class="track" data-seek="11:48:28">Glory Of The Past</button></td></tr>
+      <tr><td>6</td><td><button type="button" class="track" data-seek="15:11:21">Restive Skeleton</button></td></tr>
+      <tr><td>7</td><td><button type="button" class="track" data-seek="18:45:68">Pendulum</button></td></tr>
+      <tr><td>8</td><td><button type="button" class="track" data-seek="22:57:08">Scene Of Pandemonium</button></td></tr>
+      <tr><td>9</td><td><button type="button" class="track" data-seek="26:44:48">Eternal Rest</button></td></tr>
+      <tr><td>10</td><td> <button type="button" class="track" data-seek="31:25:33">Welcome To Dungeon</button></td></tr>
+      <tr><td>11</td><td> <button type="button" class="track" data-seek="34:58:33">For Tears ～戦いのあとで…～</button></td></tr>
+    </table>
     <script src="bundle.js"></script>
   </body>
 </html>
