@@ -2,6 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Super Dungeon Master CD+G [VINL-1]</title>
     <style type="text/css">
       body {
@@ -17,10 +18,11 @@
         cursor: pointer;
         outline: inherit;
         text-decoration: underline;
+        text-align: left;
+        vertical-align: top;
       }
       canvas#canvas {
-        max-height: 100%;
-        width: 600px;
+        max-width: 600px;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
@@ -35,7 +37,7 @@
       }
       #audio {
         display: block;
-        width: 600px;
+        max-width: 600px;
         flex: 0;
       }
     </style>
