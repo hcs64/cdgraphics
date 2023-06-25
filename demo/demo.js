@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('canvas')
   canvas.width = 300*2
   canvas.height = 216*2
+
   canvas.addEventListener('click', () => {
     if (audio.paused) {
       audio.play()
@@ -19,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   const ctx = canvas.getContext('2d')
-  let frameId
+  let frameId = null
 
   const doRender = time => {
     const frame = cdg.render(time, { forceKey: false })
@@ -34,8 +35,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // render loop
-  const pause = () => cancelAnimationFrame(frameId)
+  const pause = () => {
+    if (frameId) {
+      cancelAnimationFrame(frameId);
+      frameId = null;
+    }
+  }
   const play = () => {
+    if (frameId) {
+      cancelAnimationFrame(frameId);
+      frameId = null;
+    }
     frameId = requestAnimationFrame(play)
     doRender(audio.currentTime)
   }
