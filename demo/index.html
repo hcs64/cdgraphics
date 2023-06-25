@@ -29,16 +29,16 @@
         background-color: #222;
       }
       canvas#canvas {
-        width: 100%;
+        object-fit: contain;
         max-width: 600px;
-        flex-grow: 1;
+        max-height: 100vh;
+        min-height: 0;
+        flex: 1;
       }
       div#app:fullscreen {
         align-items: center;
       }
       div#app:fullscreen canvas#canvas {
-        object-fit: contain;
-        width: auto;
         max-width: 100%;
       }
       #loading-msg {
@@ -53,7 +53,6 @@
         width: 100%;
         max-width: 600px;
         display: block;
-        flex-grow: 0;
       }
       hr {
         margin-left: 0;
