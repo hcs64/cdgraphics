@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
       app.classList.remove('loading-cdg')
       cdg.load(buffer)
 
-      if (audio.isPaused) {
+      if (audio.paused) {
         pause()
       } else {
         play()
