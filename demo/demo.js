@@ -1,7 +1,7 @@
 const cdgUrl = 'all.cdg'
 
-//const CDGraphics = require('../index.js')
-const cdg = new CDGPlayer()
+const CDGraphics = require('../index.js')
+const cdg = new CDGraphics()
 
 document.addEventListener('DOMContentLoaded', () => {
   const app = document.getElementById('app')
