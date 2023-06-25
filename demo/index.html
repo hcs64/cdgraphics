@@ -19,7 +19,6 @@
         padding: 0;
         font: inherit;
         cursor: pointer;
-        outline: inherit;
         text-decoration: underline;
       }
       div#app {
@@ -67,10 +66,10 @@
     <div id="app" class="loading-cdg">
         <span id="loading-msg">Loading graphics&hellip;</span>
         <canvas id="canvas"></canvas>
-      <audio id="audio" controls>
-        <source src="all.ogg" type="audio/ogg; codecs=vorbis" />
-        <source src="all.mp3" type="audio/mpeg" />
-      </audio>
+        <audio id="audio" controls>
+          <source src="all.ogg" type="audio/ogg; codecs=vorbis" />
+          <source src="all.mp3" type="audio/mpeg" />
+        </audio>
     </div>
     <p>
       <button type="button" onclick="document.getElementById('app').requestFullscreen();">Go full screen</button>
