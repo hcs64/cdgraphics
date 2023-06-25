@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('canvas')
   canvas.width = 300*2
   canvas.height = 216*2
+  canvas.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play()
+    } else {
+      audio.pause()
+    }
+    audio.focus()
+  })
 
   const ctx = canvas.getContext('2d')
   let frameId
