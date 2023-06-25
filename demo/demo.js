@@ -1,14 +1,14 @@
 const cdgUrl = 'all.cdg'
 
-const CDGraphics = require('../index.js')
-const cdg = new CDGraphics()
+//const CDGraphics = require('../index.js')
+const cdg = new CDGPlayer()
 
 document.addEventListener('DOMContentLoaded', () => {
   const app = document.getElementById('app')
   const audio = document.getElementById('audio')
   const canvas = document.getElementById('canvas')
-  canvas.width = 300
-  canvas.height = 216
+  canvas.width = 300*2
+  canvas.height = 216*2
 
   const ctx = canvas.getContext('2d')
   let frameId
@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createImageBitmap(frame.imageData)
       .then(bitmap => {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.imageSmoothingEnabled = false
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
       })
   }
