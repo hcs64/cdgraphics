@@ -36,7 +36,7 @@ class CDGContext {
     this.clut = new Array(16).fill([0, 0, 0]) // color lookup table
     this.pixels = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
     this.buffer = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
-    this.imageData = new ImageData(this.WIDTH, this.HEIGHT)
+    this.imageData = new ImageData(this.WIDTH * 2, this.HEIGHT * 2)
 
     // informational
     this.backgroundRGBA = [0, 0, 0, 0]
@@ -70,11 +70,24 @@ class CDGContext {
           (forceKey && (colorIndex === this.bgColor || this.bgColor == null))
 
         // Set the rgba values in the image data
-        const offset = 4 * (x + (y * this.WIDTH))
+        let offset = 4 * (x*2 + (y*2 * this.WIDTH * 2))
         this.imageData.data[offset] = r
         this.imageData.data[offset + 1] = g
         this.imageData.data[offset + 2] = b
         this.imageData.data[offset + 3] = isKeyColor ? 0x00 : 0xff
+        this.imageData.data[offset + 4] = r
+        this.imageData.data[offset + 5] = g
+        this.imageData.data[offset + 6] = b
+        this.imageData.data[offset + 7] = isKeyColor ? 0x00 : 0xff
+        offset += 4 * this.WIDTH * 2;
+        this.imageData.data[offset] = r
+        this.imageData.data[offset + 1] = g
+        this.imageData.data[offset + 2] = b
+        this.imageData.data[offset + 3] = isKeyColor ? 0x00 : 0xff
+        this.imageData.data[offset + 4] = r
+        this.imageData.data[offset + 5] = g
+        this.imageData.data[offset + 6] = b
+        this.imageData.data[offset + 7] = isKeyColor ? 0x00 : 0xff
 
         // test content bounds
         if (!isKeyColor) {

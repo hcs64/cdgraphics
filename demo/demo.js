@@ -26,12 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const frame = cdg.render(time, { forceKey: false })
     if (!frame.isChanged) return
 
-    createImageBitmap(frame.imageData)
-      .then(bitmap => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.imageSmoothingEnabled = false
-        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-      })
+    ctx.reset();
+    ctx.putImageData(frame.imageData, 0, 0);
   }
 
   // render loop
