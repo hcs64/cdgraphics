@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const frame = cdg.render(time, { forceKey: false })
     if (!frame.isChanged) return
 
-    ctx.reset();
     ctx.putImageData(frame.imageData, 0, 0);
   }
 
