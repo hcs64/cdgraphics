@@ -9,6 +9,14 @@ const CDG_LOAD_CLUT_LOW = 30
 const CDG_LOAD_CLUT_HI = 31
 const CDG_TILE_BLOCK_XOR = 38
 
+const CDEG_MEMORY_CONTROL = 3
+const CDEG_TILE_BLOCK_2 = 6
+const CDEG_TILE_BLOCK_2_XOR = 14
+const CDEG_LOAD_CLUT_0 = 16
+const CDEG_LOAD_CLUT_248 = 47
+const CDEG_LOAD_CLUT_2_0 = 48
+const CDEG_LOAD_CLUT_2_240 = 63
+
 const CDG_SCROLL_NONE = 0 // eslint-disable-line no-unused-vars
 const CDG_SCROLL_LEFT = 1
 const CDG_SCROLL_RIGHT = 2
@@ -33,8 +41,10 @@ class CDGContext {
     this.keyColor = null // clut index
     this.bgColor = null // clut index
     this.borderColor = 0 // clut index
-    this.clut = new Array(16).fill([0, 0, 0]) // color lookup table
+    this.clut = new Array(256).fill([0, 0, 0]) // color lookup table
+    this.clut6_bits = new Array(256).fill([0, 0, 0]) // source bits for update
     this.pixels = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
+    this.pixels_2 = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
     this.buffer = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
     this.imageData = new ImageData(this.WIDTH * 2, this.HEIGHT * 2)
 
@@ -43,8 +53,23 @@ class CDGContext {
     this.contentBounds = [0, 0, 0, 0] // x1, y1, x2, y2
   }
 
-  setCLUTEntry (index, r, g, b) {
-    this.clut[index] = [r, g, b].map(c => c * 17)
+  setCLUTEntryFromBits (index) {
+    this.clut[index] = this.clut6_bits[index].map(c => c * 4)
+  }
+
+  setCLUTEntry4 (index, r, g, b) {
+    this.clut6_bits[index] = [r, g, b].map(c => c * 4 + 2)
+    this.setCLUTEntryFromBits(index)
+  }
+
+  setCLUTEntry6High4 (index, r, g, b) {
+    this.clut6_bits[index] = [r, g, b].map((c, i) => (this.clut6_bits[index][i] & 0x03) | (c << 2))
+    this.setCLUTEntryFromBits(index)
+  }
+
+  setCLUTEntry6Low2 (index, r, g, b) {
+    this.clut6_bits[index] = [r, g, b].map((c, i) => (this.clut6_bits[index][i] & 0x3c) | c)
+    this.setCLUTEntryFromBits(index)
   }
 
   renderFrame ({ forceKey = false } = {}) {
@@ -63,7 +88,8 @@ class CDGContext {
           const px = x + this.hOffset
           const py = y + this.vOffset
           const pixelIndex = px + (py * this.WIDTH)
-          colorIndex = this.pixels[pixelIndex]
+          // 1-plane mode
+          colorIndex = this.pixels[pixelIndex] | (this.pixels_2[pixelIndex] << 4)
         }
         const [r, g, b] = this.clut[colorIndex]
         const isKeyColor = colorIndex === this.keyColor ||
@@ -240,6 +266,7 @@ class CDGScrollPresetInstruction {
         ctx.buffer[x + y * ctx.WIDTH] = this.getPixel(ctx, offx, offy)
       }
     }
+    // TODO scroll pixels_2
 
     const tmp = ctx.pixels
     ctx.pixels = ctx.buffer
@@ -298,25 +325,99 @@ class CDGLoadCLUTLowInstruction {
       rgb[2] = color & 0xF // blue
       this.colors[i] = rgb
     }
+
+    this.offset = 0
   }
 
   execute (ctx) {
     for (let i = 0; i < 8; i++) {
-      ctx.setCLUTEntry(i + this.clutOffset,
-        this.colors[i][0],
-        this.colors[i][1],
-        this.colors[i][2])
+      this.op(ctx, i)
     }
   }
 
-  get clutOffset () { return 0 }
+  op (ctx, i) {
+    ctx.setCLUTEntry4(i + this.offset,
+        this.colors[i][0],
+        this.colors[i][1],
+        this.colors[i][2])
+  }
 }
 
 /************************************************
 * LOAD_CLUT_HI
 ************************************************/
 class CDGLoadCLUTHighInstruction extends CDGLoadCLUTLowInstruction {
-  get clutOffset () { return 8 }
+  constructor (bytes) {
+    super(bytes)
+    this.offset = 8
+  }
+}
+
+/************************************************
+* CD+EG
+************************************************/
+
+class CDEGMemoryControlInstruction {
+  constructor(bytes) {
+  }
+
+  execute (ctx) {
+  }
+}
+
+class CDEGTileBlockAdditionalInstruction extends CDGTileBlockInstruction {
+  op ({ pixels_2 }, offset, color) {
+    pixels_2[offset] = color
+  }
+}
+
+class CDEGTileBlockXORAdditionalInstruction extends CDGTileBlockInstruction {
+  op ({ pixels_2 }, offset, color) {
+    pixels_2[offset] = pixels_2[offset] ^ color
+  }
+}
+
+class CDEGLoadCLUTInstruction extends CDGLoadCLUTLowInstruction {
+  constructor (bytes) {
+    super(bytes)
+    this.offset = ((bytes[1] & 0x3f) - CDEG_LOAD_CLUT_0) * 8
+  }
+
+  op (ctx, i) {
+    ctx.setCLUTEntry6High4(i + this.offset,
+        this.colors[i][0],
+        this.colors[i][1],
+        this.colors[i][2])
+  }
+}
+
+class CDEGLoadCLUTAdditionalInstruction {
+  constructor (bytes) {
+    this.colors = Array(16)
+
+    for (let i = 0; i < 16; i++) {
+      const cur = CDG_DATA + i
+
+      let color = bytes[cur] & 0x3F
+
+      const rgb = Array(3)
+      rgb[0] = color >> 4 // red
+      rgb[1] = (color & 0x0c) >> 2 // green
+      rgb[2] = color & 0x03 // blue
+      this.colors[i] = rgb
+    }
+
+    this.offset = ((bytes[1] & 0x3f) - CDEG_LOAD_CLUT_2_0) * 16
+  }
+
+  execute (ctx) {
+    for (let i = 0; i < 16; i++) {
+      ctx.setCLUTEntry6Low2(i + this.offset,
+          this.colors[i][0],
+          this.colors[i][1],
+          this.colors[i][2])
+    }
+  }
 }
 
 /************************************************
@@ -354,14 +455,25 @@ class CDGParser {
   }
 
   parse (packet) {
-    if ((packet[0] & this.COMMAND_MASK) === this.CDG_COMMAND) {
+    const command = packet[0] & this.COMMAND_MASK
+    if (command === this.CDG_COMMAND) {
       const opcode = packet[1] & this.COMMAND_MASK
-      const InstructionType = this.BY_TYPE[opcode]
+      const InstructionType = this.CDG_BY_TYPE[opcode]
 
       if (typeof (InstructionType) !== 'undefined') {
         return new InstructionType(packet)
       } else {
         console.log(`Unknown CDG instruction (instruction = ${opcode})`)
+        return false // no-op
+      }
+    } else if (command === this.CDEG_COMMAND) {
+      const opcode = packet[1] & this.COMMAND_MASK
+      const InstructionType = this.CDEG_BY_TYPE[opcode]
+
+      if (typeof (InstructionType) !== 'undefined') {
+        return new InstructionType(packet)
+      } else {
+        console.log(`Unknown CDEG instruction (instruction = ${opcode})`)
         return false // no-op
       }
     }
@@ -372,7 +484,7 @@ class CDGParser {
 
 CDGParser.prototype.COMMAND_MASK = 0x3F
 CDGParser.prototype.CDG_COMMAND = 0x9
-CDGParser.prototype.BY_TYPE = {
+CDGParser.prototype.CDG_BY_TYPE = {
   [CDG_MEMORY_PRESET]: CDGMemoryPresetInstruction,
   [CDG_BORDER_PRESET]: CDGBorderPresetInstruction,
   [CDG_TILE_BLOCK]: CDGTileBlockInstruction,
@@ -382,6 +494,19 @@ CDGParser.prototype.BY_TYPE = {
   [CDG_LOAD_CLUT_LOW]: CDGLoadCLUTLowInstruction,
   [CDG_LOAD_CLUT_HI]: CDGLoadCLUTHighInstruction,
   [CDG_TILE_BLOCK_XOR]: CDGTileBlockXORInstruction
+}
+CDGParser.prototype.CDEG_COMMAND = 0xa
+CDGParser.prototype.CDEG_BY_TYPE = {
+  [CDEG_MEMORY_CONTROL]: CDEGMemoryControlInstruction,
+  [CDEG_TILE_BLOCK_2]: CDEGTileBlockAdditionalInstruction,
+  [CDEG_TILE_BLOCK_2_XOR]: CDEGTileBlockXORAdditionalInstruction,
+}
+
+for (let i = CDEG_LOAD_CLUT_0; i <= CDEG_LOAD_CLUT_248; i++) {
+  CDGParser.prototype.CDEG_BY_TYPE[i] = CDEGLoadCLUTInstruction
+}
+for (let i = CDEG_LOAD_CLUT_2_0; i <= CDEG_LOAD_CLUT_2_240; i++) {
+  CDGParser.prototype.CDEG_BY_TYPE[i] = CDEGLoadCLUTAdditionalInstruction
 }
 
 /************************************************
