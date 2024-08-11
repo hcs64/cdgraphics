@@ -56,6 +56,11 @@ class CDGContext {
     this.contentBounds = [0, 0, 0, 0] // x1, y1, x2, y2
   }
 
+  shouldShowChannel (channel) {
+    // TODO: Make this configurable
+    return (channel == 0 || channel == 1)
+  }
+
   setCLUTFromBits (index) {
     this.clut[index] = this.clut6_bits[index].map(c => c * 4)
   }
@@ -250,18 +255,22 @@ class CDGBorderPresetInstruction {
 ************************************************/
 class CDGTileBlockInstruction {
   constructor (bytes) {
-    // TODO channel select
     this.colors = [bytes[CDG_DATA] & 0x0F, bytes[CDG_DATA + 1] & 0x0F]
     this.row = bytes[CDG_DATA + 2] & 0x1F
     this.column = bytes[CDG_DATA + 3] & 0x3F
     this.pixels = bytes.slice(CDG_DATA + 4, CDG_DATA + 16)
+    this.channel = ((bytes[CDG_DATA] & 0x30) >> 2) | ((bytes[CDG_DATA + 1] & 0x30) >> 4)
   }
 
   execute (ctx) {
     /* blit a tile */
+    if (!ctx.shouldShowChannel(this.channel)) {
+      return
+    }
     if (ctx.working_memory == 0) {
       return
     }
+
     const x = this.column * ctx.TILE_WIDTH
     const y = this.row * ctx.TILE_HEIGHT
 
