@@ -92,8 +92,8 @@ class CDGContext {
       this.clut6_bits[index] = [r,g,b].map((c, i) => (old[i] & 0x3c) | c)
       this.setCLUTFromBits(index)
     } else {
-      // TODO: does 2-plane mode use the low bits? doesn't seem like it
-      console.log("CLUT low bits set in 2-plane mode")
+      // TODO: does 2-plane mode use the low bits? It is written occasionally with all 1s.
+      //console.log(`CLUT low bits set in 2-plane mode [${index}] = [${r},${g},${b}]`)
     }
   }
 
@@ -266,7 +266,7 @@ class CDGTileBlockInstruction {
     const y = this.row * ctx.TILE_HEIGHT
 
     if (x + 6 > ctx.WIDTH || y + 12 > ctx.HEIGHT) {
-      console.log(`TileBlock out of bounds (${this.row},${this.column})`)
+      //console.log(`TileBlock out of bounds (${this.row},${this.column})`)
       return
     }
 
