@@ -25,6 +25,7 @@ const CDG_SCROLL_DOWN = 2
 
 const CDG_DATA = 4
 const PACKET_SIZE = 24
+const SECONDARY_MEMORY_CLUT_START = 16
 
 /************************************************
 * CDGContext represents a specific state of
@@ -43,6 +44,8 @@ class CDGContext {
     this.borderColor = 0 // clut index
     this.clut = new Array(256).fill([0, 0, 0]) // color lookup table
     this.clut6_bits = new Array(256).fill([0, 0, 0]) // source bits for update
+    this.working_memory = 1 // CDG mode, work on primary memory only
+    this.display_memory = 1 // CDG mode, display primary memory only
     this.pixels = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
     this.pixels_2 = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
     this.buffer = new Uint8ClampedArray(this.WIDTH * this.HEIGHT).fill(0)
@@ -53,23 +56,60 @@ class CDGContext {
     this.contentBounds = [0, 0, 0, 0] // x1, y1, x2, y2
   }
 
-  setCLUTEntryFromBits (index) {
+  setCLUTFromBits (index) {
     this.clut[index] = this.clut6_bits[index].map(c => c * 4)
   }
 
-  setCLUTEntry4 (index, r, g, b) {
-    this.clut6_bits[index] = [r, g, b].map(c => c * 4 + 2)
-    this.setCLUTEntryFromBits(index)
+  setCLUTEntryItem1 (index, r, g, b) {
+    const f = (c => c * 4 + 2)
+    if (this.working_memory & 1) {
+      this.clut6_bits[index] = [r, g, b].map(f)
+      this.setCLUTFromBits(index)
+    }
+    if (this.display_memory && this.working_memory & 2) {
+      const index2 = index + SECONDARY_MEMORY_CLUT_START
+      this.clut6_bits[index2] = [r, g, b].map(f)
+      this.setCLUTFromBits(index2)
+    }
   }
 
-  setCLUTEntry6High4 (index, r, g, b) {
-    this.clut6_bits[index] = [r, g, b].map((c, i) => (this.clut6_bits[index][i] & 0x03) | (c << 2))
-    this.setCLUTEntryFromBits(index)
+  setCLUTEntryHigh4Bits (index, r, g, b) {
+    if (this.display_memory == 0) {
+      // Note: might be ok to just clobber the low bits?
+      const old = this.clut6_bits[index]
+      this.clut6_bits[index] = [r,g,b].map((c, i) => (old[i] & 0x03) | (c << 2))
+      this.setCLUTFromBits(index)
+    } else {
+      // Note: should only be doing < 16
+      // TODO: is there any difference between this and the item-1 version in 2-plane mode?
+      this.setCLUTEntryItem1(index, r, g, b)
+    }
   }
 
-  setCLUTEntry6Low2 (index, r, g, b) {
-    this.clut6_bits[index] = [r, g, b].map((c, i) => (this.clut6_bits[index][i] & 0x3c) | c)
-    this.setCLUTEntryFromBits(index)
+  setCLUTEntryLow2Bits (index, r, g, b) {
+    if (this.display_memory == 0) {
+      const old = this.clut6_bits[index]
+      this.clut6_bits[index] = [r,g,b].map((c, i) => (old[i] & 0x3c) | c)
+      this.setCLUTFromBits(index)
+    } else {
+      // TODO: does 2-plane mode use the low bits? doesn't seem like it
+      console.log("CLUT low bits set in 2-plane mode")
+    }
+  }
+
+  mixCLUT ( index_1, index_2 ) {
+    const color_1 = this.clut[index_1]
+    const color_2 = this.clut[index_2]
+
+    return color_1.map((c1, i) => {
+      const c2 = color_2[i]
+      const c = c1 + c2
+      if (c > 255) {
+        return 255
+      } else {
+        return c
+      }
+    })
   }
 
   renderFrame ({ forceKey = false } = {}) {
@@ -80,18 +120,35 @@ class CDGContext {
     for (let y = top; y < bottom; y++) {
       for (let x = left; x < right; x++) {
         let colorIndex
+        let colorIndex_2 = null
         if (x < this.DISPLAY_BOUNDS[0] || y < this.DISPLAY_BOUNDS[1] || x >= this.DISPLAY_BOUNDS[2] || y >= this.DISPLAY_BOUNDS[3]) {
           // Borders are always a fixed color
+          // TODO: different depending on display_memory?
           colorIndex = this.borderColor
         } else {
           // Respect the horizontal and vertical offsets for grabbing the pixel color
           const px = x + this.hOffset
           const py = y + this.vOffset
           const pixelIndex = px + (py * this.WIDTH)
-          // 1-plane mode
-          colorIndex = this.pixels[pixelIndex] | (this.pixels_2[pixelIndex] << 4)
+          if (this.display_memory == 0) {
+            // 1-plane mode
+            colorIndex = this.pixels[pixelIndex] | (this.pixels_2[pixelIndex] << 4)
+          } else if (this.display_memory == 1) {
+            // primary memory only
+            colorIndex = this.pixels[pixelIndex]
+          } else if (this.display_memory == 2) {
+            // secondary memory only
+            colorIndex = this.pixels_2[pixelIndex] + SECONDARY_MEMORY_CLUT_START
+          } else if (this.display_memory == 3) {
+            // mix
+            colorIndex = this.pixels[pixelIndex]
+            colorIndex_2 = this.pixels_2[pixelIndex] + SECONDARY_MEMORY_CLUT_START
+          }
         }
-        const [r, g, b] = this.clut[colorIndex]
+        const [r, g, b] = (colorIndex_2 !== null) ?
+            this.mixCLUT(colorIndex, colorIndex_2) :
+            this.clut[colorIndex]
+        // TODO this doesn't handle 2-plane mix
         const isKeyColor = colorIndex === this.keyColor ||
           (forceKey && (colorIndex === this.bgColor || this.bgColor == null))
 
@@ -156,7 +213,20 @@ class CDGMemoryPresetInstruction {
   }
 
   execute (ctx) {
-    ctx.pixels.fill(this.color)
+    switch (ctx.working_memory) {
+      case 0:
+        break
+      case 1:
+        ctx.pixels.fill(this.color)
+        break
+      case 2:
+        ctx.pixels_2.fill(this.color)
+        break
+      case 3:
+        ctx.pixels.fill(this.color)
+        ctx.pixels_2.fill(0)
+        break
+    }
     ctx.bgColor = this.color
   }
 }
@@ -170,6 +240,7 @@ class CDGBorderPresetInstruction {
   }
 
   execute (ctx) {
+    // TODO how should this work regarding planes?
     ctx.borderColor = this.color
   }
 }
@@ -179,7 +250,7 @@ class CDGBorderPresetInstruction {
 ************************************************/
 class CDGTileBlockInstruction {
   constructor (bytes) {
-    // some players check bytes[doff+1] & 0x20 and ignores if it is set (?)
+    // TODO channel select
     this.colors = [bytes[CDG_DATA] & 0x0F, bytes[CDG_DATA + 1] & 0x0F]
     this.row = bytes[CDG_DATA + 2] & 0x1F
     this.column = bytes[CDG_DATA + 3] & 0x3F
@@ -188,6 +259,9 @@ class CDGTileBlockInstruction {
 
   execute (ctx) {
     /* blit a tile */
+    if (ctx.working_memory == 0) {
+      return
+    }
     const x = this.column * ctx.TILE_WIDTH
     const y = this.row * ctx.TILE_HEIGHT
 
@@ -201,12 +275,22 @@ class CDGTileBlockInstruction {
       for (let j = 0; j < 6; j++) {
         const color = this.colors[((curbyte >> (5 - j)) & 0x1)]
         const offset = x + j + (y + i) * ctx.WIDTH
-        this.op(ctx, offset, color)
+
+        this.ops(ctx, offset, color)
       }
     }
   }
 
-  op ({ pixels }, offset, color) {
+  ops ({ working_memory, display_memory, pixels, pixels_2 }, offset, color) {
+      if (working_memory & 1) {
+        this.op(pixels, offset, color)
+      }
+      if (display_memory != 0 && working_memory & 2) {
+        this.op(pixels_2, offset, color)
+      }
+  }
+
+  op (pixels, offset, color) {
     pixels[offset] = color
   }
 }
@@ -215,7 +299,7 @@ class CDGTileBlockInstruction {
 * TILE_BLOCK_XOR
 ************************************************/
 class CDGTileBlockXORInstruction extends CDGTileBlockInstruction {
-  op ({ pixels }, offset, color) {
+  op (pixels, offset, color) {
     pixels[offset] = pixels[offset] ^ color
   }
 }
@@ -237,6 +321,10 @@ class CDGScrollPresetInstruction {
   }
 
   execute (ctx) {
+    if (ctx.working_memory == 0) {
+      return
+    }
+
     ctx.hOffset = Math.min(this.hOffset, 5)
     ctx.vOffset = Math.min(this.vOffset, 11)
 
@@ -258,26 +346,52 @@ class CDGScrollPresetInstruction {
       return
     }
 
-    let offx, offy
     for (let x = 0; x < ctx.WIDTH; x++) {
       for (let y = 0; y < ctx.HEIGHT; y++) {
-        offx = x + hmove
-        offy = y + vmove
+        const offx = x + hmove
+        const offy = y + vmove
         ctx.buffer[x + y * ctx.WIDTH] = this.getPixel(ctx, offx, offy)
       }
     }
-    // TODO scroll pixels_2
 
-    const tmp = ctx.pixels
-    ctx.pixels = ctx.buffer
-    ctx.buffer = tmp
+    {
+      const tmp = ctx.pixels
+      ctx.pixels = ctx.buffer
+      ctx.buffer = tmp
+    }
+
+    for (let x = 0; x < ctx.WIDTH; x++) {
+      for (let y = 0; y < ctx.HEIGHT; y++) {
+        const offx = x + hmove
+        const offy = y + vmove
+        ctx.buffer[x + y * ctx.WIDTH] = this.getPixel_2(ctx, offx, offy)
+      }
+    }
+
+    {
+      const tmp = ctx.pixels_2
+      ctx.pixels_2 = ctx.buffer
+      ctx.buffer = tmp
+    }
   }
 
-  getPixel ({ WIDTH, HEIGHT, pixels }, offx, offy) {
+  getPixel ({ WIDTH, HEIGHT }, offx, offy) {
     if (offx > 0 && offx < WIDTH && offy > 0 && offy < HEIGHT) {
       return pixels[offx + offy * WIDTH]
     } else {
       return this.color
+    }
+  }
+
+  getPixel_2 ({ WIDTH, HEIGHT, pixels_2, display_memory }, offx, offy) {
+    if (offx > 0 && offx < WIDTH && offy > 0 && offy < HEIGHT) {
+      return pixels[offx + offy * WIDTH]
+    } else {
+      if (display_memory == 0) {
+        return 0
+      } else {
+        return this.color
+      }
     }
   }
 }
@@ -290,6 +404,12 @@ class CDGScrollCopyInstruction extends CDGScrollPresetInstruction {
     offx = (offx + WIDTH) % WIDTH
     offy = (offy + HEIGHT) % HEIGHT
     return pixels[offx + offy * WIDTH]
+  }
+
+  getPixel_2 ({ WIDTH, HEIGHT, pixels_2 }, offx, offy) {
+    offx = (offx + WIDTH) % WIDTH
+    offy = (offy + HEIGHT) % HEIGHT
+    return pixels_2[offx + offy * WIDTH]
   }
 }
 
@@ -330,13 +450,16 @@ class CDGLoadCLUTLowInstruction {
   }
 
   execute (ctx) {
+    if (ctx.working_memory == 0) {
+      return
+    }
     for (let i = 0; i < 8; i++) {
       this.op(ctx, i)
     }
   }
 
   op (ctx, i) {
-    ctx.setCLUTEntry4(i + this.offset,
+    ctx.setCLUTEntryItem1(i + this.offset,
         this.colors[i][0],
         this.colors[i][1],
         this.colors[i][2])
@@ -359,20 +482,40 @@ class CDGLoadCLUTHighInstruction extends CDGLoadCLUTLowInstruction {
 
 class CDEGMemoryControlInstruction {
   constructor(bytes) {
+    // TODO repeated twice, is this significant?
+    this.mode = bytes[CDG_DATA] & 0xf
   }
 
   execute (ctx) {
+    const working_memory = this.mode & 3
+    const display_memory = this.mode >> 2
+
+    if (display_memory == 0 && (working_memory == 1 || working_memory == 2)) {
+      // no-op
+      return
+    }
+
+    /*
+    if (ctx.working_memory != working_memory) {
+      console.log(`working memory ${ctx.working_memory} -> ${working_memory}`)
+    }
+    if (ctx.display_memory != display_memory) {
+      console.log(`display memory ${ctx.display_memory} -> ${display_memory}`)
+    }
+    */
+    ctx.working_memory = working_memory
+    ctx.display_memory = display_memory
   }
 }
 
 class CDEGTileBlockAdditionalInstruction extends CDGTileBlockInstruction {
-  op ({ pixels_2 }, offset, color) {
+  ops ({ pixels_2 }, offset, color) {
     pixels_2[offset] = color
   }
 }
 
 class CDEGTileBlockXORAdditionalInstruction extends CDGTileBlockInstruction {
-  op ({ pixels_2 }, offset, color) {
+  ops ({ pixels_2 }, offset, color) {
     pixels_2[offset] = pixels_2[offset] ^ color
   }
 }
@@ -384,7 +527,7 @@ class CDEGLoadCLUTInstruction extends CDGLoadCLUTLowInstruction {
   }
 
   op (ctx, i) {
-    ctx.setCLUTEntry6High4(i + this.offset,
+    ctx.setCLUTEntryHigh4Bits(i + this.offset,
         this.colors[i][0],
         this.colors[i][1],
         this.colors[i][2])
@@ -412,7 +555,7 @@ class CDEGLoadCLUTAdditionalInstruction {
 
   execute (ctx) {
     for (let i = 0; i < 16; i++) {
-      ctx.setCLUTEntry6Low2(i + this.offset,
+      ctx.setCLUTEntryLow2Bits(i + this.offset,
           this.colors[i][0],
           this.colors[i][1],
           this.colors[i][2])
