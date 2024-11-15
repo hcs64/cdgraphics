@@ -39,6 +39,8 @@ class CDGContext {
   init () {
     this.hOffset = 0
     this.vOffset = 0
+    this.hOffset_2 = 0
+    this.vOffset_2 = 0
     this.keyColor = null // clut index
     this.bgColor = null // clut index
     this.borderColor = 0 // clut index
@@ -135,19 +137,22 @@ class CDGContext {
           const px = x + this.hOffset
           const py = y + this.vOffset
           const pixelIndex = px + (py * this.WIDTH)
+          const px_2 = x + this.hOffset_2
+          const py_2 = y + this.vOffset_2
+          const pixelIndex_2 = px_2 + (py_2 * this.WIDTH)
           if (this.display_memory == 0) {
             // 1-plane mode
-            colorIndex = this.pixels[pixelIndex] | (this.pixels_2[pixelIndex] << 4)
+            colorIndex = this.pixels[pixelIndex] | (this.pixels_2[pixelIndex_2] << 4)
           } else if (this.display_memory == 1) {
             // primary memory only
             colorIndex = this.pixels[pixelIndex]
           } else if (this.display_memory == 2) {
             // secondary memory only
-            colorIndex = this.pixels_2[pixelIndex] + SECONDARY_MEMORY_CLUT_START
+            colorIndex = this.pixels_2[pixelIndex_2] + SECONDARY_MEMORY_CLUT_START
           } else if (this.display_memory == 3) {
             // mix
             colorIndex = this.pixels[pixelIndex]
-            colorIndex_2 = this.pixels_2[pixelIndex] + SECONDARY_MEMORY_CLUT_START
+            colorIndex_2 = this.pixels_2[pixelIndex_2] + SECONDARY_MEMORY_CLUT_START
           }
         }
         const [r, g, b] = (colorIndex_2 !== null) ?
@@ -334,8 +339,14 @@ class CDGScrollPresetInstruction {
       return
     }
 
-    ctx.hOffset = Math.min(this.hOffset, 5)
-    ctx.vOffset = Math.min(this.vOffset, 11)
+    if (ctx.working_memory & 1) {
+      ctx.hOffset = Math.min(this.hOffset, 5)
+      ctx.vOffset = Math.min(this.vOffset, 11)
+    }
+    if (ctx.working_memory & 2) {
+      ctx.hOffset_2 = Math.min(this.hOffset, 5)
+      ctx.vOffset_2 = Math.min(this.vOffset, 11)
+    }
 
     let hmove = 0
     if (this.hCmd === CDG_SCROLL_RIGHT) {
@@ -355,32 +366,36 @@ class CDGScrollPresetInstruction {
       return
     }
 
-    for (let x = 0; x < ctx.WIDTH; x++) {
-      for (let y = 0; y < ctx.HEIGHT; y++) {
-        const offx = x + hmove
-        const offy = y + vmove
-        ctx.buffer[x + y * ctx.WIDTH] = this.getPixel(ctx, offx, offy)
+    if (ctx.working_memory & 1) {
+      for (let x = 0; x < ctx.WIDTH; x++) {
+        for (let y = 0; y < ctx.HEIGHT; y++) {
+          const offx = x + hmove
+          const offy = y + vmove
+          ctx.buffer[x + y * ctx.WIDTH] = this.getPixel(ctx, offx, offy)
+        }
+      }
+
+      {
+        const tmp = ctx.pixels
+        ctx.pixels = ctx.buffer
+        ctx.buffer = tmp
       }
     }
 
-    {
-      const tmp = ctx.pixels
-      ctx.pixels = ctx.buffer
-      ctx.buffer = tmp
-    }
-
-    for (let x = 0; x < ctx.WIDTH; x++) {
-      for (let y = 0; y < ctx.HEIGHT; y++) {
-        const offx = x + hmove
-        const offy = y + vmove
-        ctx.buffer[x + y * ctx.WIDTH] = this.getPixel_2(ctx, offx, offy)
+    if (ctx.working_memory & 2) {
+      for (let x = 0; x < ctx.WIDTH; x++) {
+        for (let y = 0; y < ctx.HEIGHT; y++) {
+          const offx = x + hmove
+          const offy = y + vmove
+          ctx.buffer[x + y * ctx.WIDTH] = this.getPixel_2(ctx, offx, offy)
+        }
       }
-    }
 
-    {
-      const tmp = ctx.pixels_2
-      ctx.pixels_2 = ctx.buffer
-      ctx.buffer = tmp
+      {
+        const tmp = ctx.pixels_2
+        ctx.pixels_2 = ctx.buffer
+        ctx.buffer = tmp
+      }
     }
   }
 
