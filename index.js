@@ -493,6 +493,9 @@ class CDGLoadCLUTLowInstruction {
   }
 
   op (ctx, i) {
+    if (ctx.displayMemory === 0) {
+      return
+    }
     ctx.setCLUTEntryItem1(i + this.offset,
       this.colors[i][0],
       this.colors[i][1],
