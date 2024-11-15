@@ -27,6 +27,13 @@ const CDG_DATA = 4
 const PACKET_SIZE = 24
 const SECONDARY_MEMORY_CLUT_START = 16
 
+const ITEM_1_BITS = 4
+const ITEM_2_BITS = 6
+const CLUT_BITS = 8
+// This bias is added after scaling up a 4 bit item-1 (CD+G) color intensity
+// to get a 6 bit item-2 (CD+EG) intensity.
+const ITEM_1_BIAS = 2
+
 /************************************************
 * CDGContext represents a specific state of
 * the screen, clut and other CDG variables.
@@ -64,11 +71,11 @@ class CDGContext {
   }
 
   setCLUTFromBits (index) {
-    this.clut[index] = this.clut6_bits[index].map(c => c * 4)
+    this.clut[index] = this.clut6_bits[index].map(c => c << (CLUT_BITS - ITEM_2_BITS))
   }
 
   setCLUTEntryItem1 (index, r, g, b) {
-    const f = c => c * 4 + 2
+    const f = c => (c << (ITEM_2_BITS - ITEM_1_BITS)) + ITEM_1_BIAS
     if (this.workingMemory & 1) {
       this.clut6_bits[index] = [r, g, b].map(f)
       this.setCLUTFromBits(index)
@@ -110,7 +117,7 @@ class CDGContext {
 
     return color1.map((c1, i) => {
       const c2 = color2[i]
-      const c = c1 + c2
+      const c = c1 + c2 - (ITEM_1_BIAS << (CLUT_BITS - ITEM_2_BITS))
       if (c > 255) {
         return 255
       } else {
