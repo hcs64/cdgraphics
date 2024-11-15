@@ -384,7 +384,7 @@ class CDGScrollPresetInstruction {
     }
   }
 
-  getPixel ({ WIDTH, HEIGHT }, offx, offy) {
+  getPixel ({ WIDTH, HEIGHT, pixels }, offx, offy) {
     if (offx > 0 && offx < WIDTH && offy > 0 && offy < HEIGHT) {
       return pixels[offx + offy * WIDTH]
     } else {
@@ -394,7 +394,7 @@ class CDGScrollPresetInstruction {
 
   getPixel_2 ({ WIDTH, HEIGHT, pixels_2, display_memory }, offx, offy) {
     if (offx > 0 && offx < WIDTH && offy > 0 && offy < HEIGHT) {
-      return pixels[offx + offy * WIDTH]
+      return pixels_2[offx + offy * WIDTH]
     } else {
       if (display_memory == 0) {
         return 0
