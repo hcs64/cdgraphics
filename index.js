@@ -51,6 +51,7 @@ class CDGContext {
     this.keyColor = null // clut index
     this.bgColor = null // clut index
     this.borderColor = 0 // clut index
+    this.borderColor2 = 0 // clut index
     this.clut = new Array(256).fill([0, 0, 0]) // color lookup table
     this.clut6_bits = new Array(256).fill([0, 0, 0]) // source bits for update
     this.workingMemory = 1 // CDG mode, work on primary memory only
@@ -140,8 +141,20 @@ class CDGContext {
           x >= this.DISPLAY_BOUNDS[2] ||
           y >= this.DISPLAY_BOUNDS[3]) {
           // Borders are always a fixed color
-          // TODO: different depending on displayMemory?
-          colorIndex = this.borderColor
+          if (this.displayMemory === 0) {
+            // 1-plane mode (borderColor2 should always be 0)
+            colorIndex = this.borderColor
+          } else if (this.displayMemory === 1) {
+            // primary memory only
+            colorIndex = this.borderColor
+          } else if (this.displayMemory === 2) {
+            // secondary memory only
+            colorIndex = this.borderColor2 + SECONDARY_MEMORY_CLUT_START
+          } else {
+            // mix
+            colorIndex = this.borderColor
+            colorIndex2 = this.borderColor2 + SECONDARY_MEMORY_CLUT_START
+          }
         } else {
           // Respect the horizontal and vertical offsets for grabbing the pixel color
           const px = x + this.hOffset
@@ -244,7 +257,11 @@ class CDGMemoryPresetInstruction {
         break
       case 3:
         ctx.pixels.fill(this.color)
-        ctx.pixels2.fill(0)
+        if (ctx.displayMemory === 3) {
+          ctx.pixels2.fill(0)
+        } else {
+          ctx.pixels2.fill(this.color)
+        }
         break
     }
     ctx.bgColor = this.color
@@ -260,8 +277,24 @@ class CDGBorderPresetInstruction {
   }
 
   execute (ctx) {
-    // TODO how should this work regarding planes?
-    ctx.borderColor = this.color
+    switch (ctx.workingMemory) {
+      case 0:
+        break
+      case 1:
+        ctx.borderColor = this.color
+        break
+      case 2:
+        ctx.borderColor2 = this.color
+        break
+      case 3:
+        ctx.borderColor = this.color
+        if (ctx.displayMemory === 3) {
+          ctx.borderColor2 = 0
+        } else {
+          ctx.borderColor2 = this.color
+        }
+        break
+    }
   }
 }
 
@@ -484,6 +517,7 @@ class CDGLoadCLUTLowInstruction {
   }
 
   execute (ctx) {
+    // console.log(ctx.displayMemory, ctx.workingMemory, ctx.eg || 0, this.offset, this.colors);
     if (ctx.workingMemory === 0) {
       return
     }
@@ -561,6 +595,7 @@ class CDEGLoadCLUTInstruction extends CDGLoadCLUTLowInstruction {
   constructor (bytes) {
     super(bytes)
     this.offset = ((bytes[1] & 0x3f) - CDEG_LOAD_CLUT_0) * 8
+    // this.eg = 1
   }
 
   op (ctx, i) {
